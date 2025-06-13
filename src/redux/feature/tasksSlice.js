@@ -60,7 +60,7 @@ const tasksSlice = createSlice({
     builder
       .addCase(fetchTasks.pending, (state) => {
         state.loading = true;
-        state.error = { message: null, status: null };
+        state.error = null;
       })
       .addCase(fetchTasks.fulfilled, (state, action) => {
         state.loading = false;
@@ -69,9 +69,7 @@ const tasksSlice = createSlice({
       .addCase(fetchTasks.rejected, (state, action) => {
         state.loading = false;
         const payload = action.payload;
-        state.error = payload
-          ? { message: payload.message, status: payload.status }
-          : { message: action.error.message, status: null };
+        state.error = null;
       })
 
       .addCase(addTask.fulfilled, (state, action) => {

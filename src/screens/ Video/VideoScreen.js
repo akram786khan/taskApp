@@ -11,12 +11,13 @@ import {
   StyleSheet,
   Platform,
   PermissionsAndroid,
+  Modal,
 } from "react-native";
 import RNFS from "react-native-fs";
 import Video from "react-native-video";
 import { useDispatch } from "react-redux";
 import { fetchVideos } from "../../redux/feature/videoSlice";
-
+import NetInfo from "@react-native-community/netinfo";
 const VideoScreen = () => {
   const [downloaded, setDownloaded] = useState({});
   const [downloading, setDownloading] = useState({});
@@ -24,10 +25,48 @@ const VideoScreen = () => {
   const [videoData, setVideoData] = useState([]);
   const [Loading, setLoading] = useState(true);
   const dispatch = useDispatch();
+  const [isOffline, setIsOffline] = useState(false);
+
+  // useEffect(() => {
+  //   const unsubscribe = NetInfo.addEventListener((state) => {
+  //     console.log("state---->>", state);
+
+  //     setIsOffline(!(state.isConnected && state.isInternetReachable));
+  //   });
+
+  //   return () => unsubscribe();
+  // }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Check initial status
+    NetInfo.fetch().then((state) => {
+      if (mounted) {
+        const offline = !(state.isConnected && state.isInternetReachable);
+
+        console.log("Initial NetInfo:", state, "→ offline?", offline);
+        setIsOffline(offline);
+      }
+    });
+
+    // Subscribe to changes
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const offline = !(state.isConnected && state.isInternetReachable);
+      console.log("NetInfo update:", state, "→ offline?", offline);
+      setIsOffline(offline);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     getAllData();
+    requestStoragePermission();
   }, [dispatch]);
   const getAllData = async () => {
     let res = await dispatch(fetchVideos());
@@ -142,12 +181,35 @@ const VideoScreen = () => {
       <ActivityIndicator size={"large"} />
     </View>
   ) : (
-    <FlatList
-      data={videoData}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContainer}
-    />
+    <>
+      <Modal
+        visible={isOffline}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsOffline(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>No Internet Connection</Text>
+            <Text style={styles.modalText}>
+              Looks like you're offline. Please check your connection.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setIsOffline(false)}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      <FlatList
+        data={videoData}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContainer}
+      />
+    </>
   );
 };
 
@@ -201,6 +263,28 @@ const styles = StyleSheet.create({
     height: 200,
     marginTop: 10,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
+  modalText: { textAlign: "center", marginBottom: 20 },
+  modalButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  modalButtonText: { color: "#fff", fontWeight: "500" },
 });
 
 export default VideoScreen;
